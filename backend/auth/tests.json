@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "name": "Missing fields returns error",
+      "method": "POST",
+      "path": "/",
+      "body": {},
+      "expectedStatus": 404,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
