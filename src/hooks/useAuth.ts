@@ -32,25 +32,33 @@ export function useAuth() {
   }
 
   async function login(username: string, password: string): Promise<{ ok: boolean; error?: string }> {
-    const data = await api.auth.login({ username, password });
-    if (data.token) {
-      localStorage.setItem('vibe_token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      return { ok: true };
+    try {
+      const data = await api.auth.login({ username, password });
+      if (data.token) {
+        localStorage.setItem('vibe_token', data.token);
+        setToken(data.token);
+        setUser(data.user);
+        return { ok: true };
+      }
+      return { ok: false, error: data.error || 'Ошибка входа' };
+    } catch {
+      return { ok: false, error: 'Нет соединения с сервером' };
     }
-    return { ok: false, error: data.error || 'Ошибка входа' };
   }
 
   async function register(username: string, display_name: string, password: string): Promise<{ ok: boolean; error?: string }> {
-    const data = await api.auth.register({ username, display_name, password });
-    if (data.token) {
-      localStorage.setItem('vibe_token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      return { ok: true };
+    try {
+      const data = await api.auth.register({ username, display_name, password });
+      if (data.token) {
+        localStorage.setItem('vibe_token', data.token);
+        setToken(data.token);
+        setUser(data.user);
+        return { ok: true };
+      }
+      return { ok: false, error: data.error || 'Ошибка регистрации' };
+    } catch {
+      return { ok: false, error: 'Нет соединения с сервером' };
     }
-    return { ok: false, error: data.error || 'Ошибка регистрации' };
   }
 
   function logout() {

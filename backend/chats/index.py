@@ -1,4 +1,4 @@
-"""Чаты: список, создание, личные сообщения и группы"""
+"""Чаты: список, создание, личные диалоги и группы"""
 import json
 import os
 import psycopg2
@@ -34,9 +34,10 @@ def handler(event: dict, context) -> dict:
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
-    path = event.get('path', '')
     method = event.get('httpMethod', 'GET')
     body = json.loads(event.get('body') or '{}')
+    params = event.get('queryStringParameters') or {}
+    action = params.get('action', 'list')
 
     auth_header = event.get('headers', {}).get('X-Authorization', '') or event.get('headers', {}).get('Authorization', '')
     token = auth_header.replace('Bearer ', '').strip() if auth_header else None
@@ -47,8 +48,7 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return err('Не авторизован', 401)
 
-    # POST /direct — создать или найти личный чат
-    if path.endswith('/direct') and method == 'POST':
+    if action == 'direct' and method == 'POST':
         target_id = body.get('target_user_id')
         if not target_id:
             conn.close()
@@ -95,26 +95,24 @@ def handler(event: dict, context) -> dict:
             'created_at': chat_row[0].isoformat() if chat_row else ''
         }})
 
-    # GET / — список чатов
-    elif path.rstrip('/').endswith('/chats') or path == '/' or (not path.split('/')[-1].isdigit() and 'direct' not in path and 'messages' not in path):
-        if method == 'POST':
-            # Создать группу
-            name = body.get('name', '').strip()
-            chat_type = body.get('type', 'group')
-            if not name:
-                conn.close()
-                return err('Укажите название')
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO chats (type, name, created_by) VALUES (%s, %s, %s) RETURNING id, created_at",
-                (chat_type, name, user['id'])
-            )
-            chat_id, created_at = cur.fetchone()
-            cur.execute("INSERT INTO chat_members (chat_id, user_id) VALUES (%s, %s)", (chat_id, user['id']))
-            conn.commit(); cur.close(); conn.close()
-            return ok({'chat': {'id': chat_id, 'type': chat_type, 'name': name, 'unread_count': 0, 'members_count': 1, 'created_at': created_at.isoformat()}})
+    elif action == 'create' and method == 'POST':
+        name = body.get('name', '').strip()
+        chat_type = body.get('type', 'group')
+        if not name:
+            conn.close()
+            return err('Укажите название')
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO chats (type, name, created_by) VALUES (%s, %s, %s) RETURNING id, created_at",
+            (chat_type, name, user['id'])
+        )
+        chat_id, created_at = cur.fetchone()
+        cur.execute("INSERT INTO chat_members (chat_id, user_id) VALUES (%s, %s)", (chat_id, user['id']))
+        conn.commit(); cur.close(); conn.close()
+        return ok({'chat': {'id': chat_id, 'type': chat_type, 'name': name, 'unread_count': 0, 'members_count': 1, 'created_at': created_at.isoformat()}})
 
-        # GET
+    else:
+        # GET list
         cur = conn.cursor()
         cur.execute(
             "SELECT c.id, c.type, c.name, c.created_at, "
@@ -161,6 +159,3 @@ def handler(event: dict, context) -> dict:
 
         cur.close(); conn.close()
         return ok({'chats': chats})
-
-    conn.close()
-    return err('Не найдено', 404)

@@ -50,16 +50,17 @@ def handler(event: dict, context) -> dict:
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
-    path = event.get('path', '')
     method = event.get('httpMethod', 'GET')
     body = json.loads(event.get('body') or '{}')
+    params = event.get('queryStringParameters') or {}
+    action = params.get('action', '')
 
     auth_header = event.get('headers', {}).get('X-Authorization', '') or event.get('headers', {}).get('Authorization', '')
     token = auth_header.replace('Bearer ', '').strip() if auth_header else None
 
     conn = get_conn()
 
-    if path.endswith('/register') and method == 'POST':
+    if action == 'register' and method == 'POST':
         username = body.get('username', '').strip().lower()
         display_name = body.get('display_name', '').strip()
         password = body.get('password', '')
@@ -101,7 +102,7 @@ def handler(event: dict, context) -> dict:
                      'created_at': created_at.isoformat()}
         })
 
-    elif path.endswith('/login') and method == 'POST':
+    elif action == 'login' and method == 'POST':
         username = body.get('username', '').strip().lower()
         password = body.get('password', '')
         pw_hash = hash_password(password)
@@ -133,7 +134,7 @@ def handler(event: dict, context) -> dict:
                      'created_at': row[4].isoformat()}
         })
 
-    elif path.endswith('/me') and method == 'GET':
+    elif action == 'me' and method == 'GET':
         if not token:
             conn.close()
             return err('Не авторизован', 401)
