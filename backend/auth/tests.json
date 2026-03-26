@@ -1,10 +1,9 @@
 {
   "tests": [
     {
-      "name": "Missing fields returns error",
-      "method": "POST",
+      "name": "Missing action returns 404",
+      "method": "GET",
       "path": "/",
-      "body": {},
       "expectedStatus": 404,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"

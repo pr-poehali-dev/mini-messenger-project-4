@@ -6,8 +6,7 @@ import psycopg2
 CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Authorization, X-User-Id, X-Auth-Token',
-    'Access-Control-Max-Age': '86400',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Authorization',
 }
 
 def get_conn():
@@ -36,6 +35,8 @@ def handler(event: dict, context) -> dict:
 
     method = event.get('httpMethod', 'GET')
     body = json.loads(event.get('body') or '{}')
+    params = event.get('queryStringParameters') or {}
+    action = params.get('action', 'list')
 
     auth_header = event.get('headers', {}).get('X-Authorization', '') or event.get('headers', {}).get('Authorization', '')
     token = auth_header.replace('Bearer ', '').strip() if auth_header else None
@@ -46,7 +47,7 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return err('Не авторизован', 401)
 
-    if method == 'GET':
+    if action == 'list' or method == 'GET':
         cur = conn.cursor()
         cur.execute(
             "SELECT u.id, u.username, u.display_name, u.bio, u.is_online, u.created_at "
@@ -59,7 +60,7 @@ def handler(event: dict, context) -> dict:
         contacts = [{'id': r[0], 'username': r[1], 'display_name': r[2], 'bio': r[3], 'is_online': r[4], 'created_at': r[5].isoformat()} for r in rows]
         return ok({'contacts': contacts})
 
-    elif method == 'POST':
+    elif action == 'add' and method == 'POST':
         username = body.get('username', '').strip().lower()
         if not username:
             conn.close()

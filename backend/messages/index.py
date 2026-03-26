@@ -1,13 +1,12 @@
-"""Сообщения: получение и отправка в чат"""
+"""Сообщения: получение и отправка через chat_id в query"""
 import json
 import os
 import psycopg2
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Authorization, X-User-Id, X-Auth-Token',
-    'Access-Control-Max-Age': '86400',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Authorization',
 }
 
 def get_conn():
@@ -35,10 +34,9 @@ def handler(event: dict, context) -> dict:
     if event.get('httpMethod') == 'OPTIONS':
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
-    path = event.get('path', '')
     method = event.get('httpMethod', 'GET')
-    body_raw = event.get('body') or '{}'
-    body = json.loads(body_raw)
+    body = json.loads(event.get('body') or '{}')
+    params = event.get('queryStringParameters') or {}
 
     auth_header = event.get('headers', {}).get('X-Authorization', '') or event.get('headers', {}).get('Authorization', '')
     token = auth_header.replace('Bearer ', '').strip() if auth_header else None
@@ -49,21 +47,17 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return err('Не авторизован', 401)
 
-    # Извлекаем chat_id из пути /chats/{chat_id}/messages
-    parts = [p for p in path.split('/') if p]
-    chat_id = None
-    for i, p in enumerate(parts):
-        if p == 'messages' and i > 0:
-            try:
-                chat_id = int(parts[i - 1])
-            except ValueError:
-                pass
-
-    if chat_id is None:
+    chat_id_str = params.get('chat_id', '')
+    if not chat_id_str:
         conn.close()
-        return err('Некорректный путь', 404)
+        return err('chat_id обязателен')
 
-    # Проверяем, что юзер — участник чата
+    try:
+        chat_id = int(chat_id_str)
+    except ValueError:
+        conn.close()
+        return err('Некорректный chat_id')
+
     cur = conn.cursor()
     cur.execute("SELECT 1 FROM chat_members WHERE chat_id = %s AND user_id = %s", (chat_id, user['id']))
     if not cur.fetchone():

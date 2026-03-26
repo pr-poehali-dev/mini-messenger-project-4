@@ -6,8 +6,7 @@ import psycopg2
 CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Authorization, X-User-Id, X-Auth-Token',
-    'Access-Control-Max-Age': '86400',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Authorization',
 }
 
 def get_conn():
@@ -35,9 +34,9 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 200, 'headers': CORS, 'body': ''}
 
     method = event.get('httpMethod', 'GET')
-    path = event.get('path', '')
     params = event.get('queryStringParameters') or {}
     body = json.loads(event.get('body') or '{}')
+    action = params.get('action', '')
 
     auth_header = event.get('headers', {}).get('X-Authorization', '') or event.get('headers', {}).get('Authorization', '')
     token = auth_header.replace('Bearer ', '').strip() if auth_header else None
@@ -48,7 +47,7 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return err('Не авторизован', 401)
 
-    if path.endswith('/search') and method == 'GET':
+    if action == 'search' and method == 'GET':
         q = params.get('q', '').strip()
         if not q:
             conn.close()
@@ -65,7 +64,7 @@ def handler(event: dict, context) -> dict:
         users = [{'id': r[0], 'username': r[1], 'display_name': r[2], 'bio': r[3], 'is_online': r[4]} for r in rows]
         return ok({'users': users})
 
-    if path.endswith('/profile') and method == 'PUT':
+    elif action == 'profile' and method == 'PUT':
         display_name = body.get('display_name', '').strip()
         bio = body.get('bio', '').strip()
         if not display_name:
